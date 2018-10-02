@@ -3,10 +3,19 @@ from flask import request
 from flask import render_template
 from flask import send_from_directory
 from flask import url_for
+from flask_uploads import UploadSet, configure_uploads, IMAGES
+from werkzeug import secure_filename
+import uuid
+import subprocess
 from flask_cors import CORS, cross_origin
 from gensim.parsing.preprocessing import preprocess_string
 
 app = Flask(__name__)
+
+photos = UploadSet('photos', IMAGES)
+app.config['UPLOADED_PHOTOS_DEST'] = 'static/img'
+configure_uploads(app, photos)
+
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
@@ -29,9 +38,27 @@ def build_tree(low, high, node, images, seg):
         build_tree(mid + 1, high, 2 * node + 2, images, seg)
         seg[node] = seg[2 * node + 1].intersection(seg[2 * node + 2])
 
+def add_db(tag, idx):
+    pass
+
 # Process search query
 
+def yolo():
+    cmd = ["darknet/darknet", "detect", "cfg/yolov3.cfg", "yolov3.weights", "static/img/" + idx + "jpeg"]
+    with open('text_output.txt', 'w') as fout:
+        subprocess.Popen(cmd, stdout=fout,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE)
+
 @app.route('/', methods=['GET'])
+def home():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['GET'])
+def upload_home():
+    return render_template('upload.html')
+
+@app.route('/query', methods=['GET'])
 def take_input():
     input = request.args.get("input")
     input = clean_text(input)
@@ -53,5 +80,19 @@ def take_input():
     return render_template('out.html', images=output)
 #    return ''.join(input)
 
+@app.route('/insert', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST' and 'photo' in request.files:
+        code = str(int(uuid.uuid4()))
+        filename = photos.save(request.files['photo'], name=code + ".jpeg")
+#        tag = set(yolo(code))
+        tag = set(["cat", "dog"])
+        out = "Tags found are "
+        for t in tag:
+            add_db(t, code)
+            out = out + " " + t
+        return out
+    return render_template('upload.html')
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
