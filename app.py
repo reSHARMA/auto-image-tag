@@ -6,11 +6,14 @@ from flask import url_for
 from flask_uploads import UploadSet, configure_uploads, IMAGES
 from werkzeug import secure_filename
 import uuid
+import redis
 import subprocess
 from flask_cors import CORS, cross_origin
 from gensim.parsing.preprocessing import preprocess_string
 
 app = Flask(__name__)
+
+r = redis.StrictRedis(host='127.0.0.1', port=6379, db=0)
 
 photos = UploadSet('photos', IMAGES)
 app.config['UPLOADED_PHOTOS_DEST'] = 'static/img'
@@ -39,7 +42,10 @@ def build_tree(low, high, node, images, seg):
         seg[node] = seg[2 * node + 1].intersection(seg[2 * node + 2])
 
 def add_db(tag, idx):
-    pass
+    r.sadd(tag, idx)
+
+def get_image(tag):
+    return r.smembers(tag)
 
 # Process search query
 
@@ -66,8 +72,9 @@ def take_input():
     print(input)
     images = list()
     for tag in input:
-#       image_list = get_image(tag)
-        image_list = set([1])
+        image_list = get_image(tag)
+#       image_list = set([1])
+        print(image_list)
         images.append(image_list)
     seg = [0] * (len(images) * 4)
     build_tree(0, len(images) - 1, 0, images, seg)
@@ -78,14 +85,14 @@ def take_input():
                 output.append(y)
     output = unique(output)
     return render_template('out.html', images=output)
-#    return ''.join(input)
+#   return ''.join(input)
 
 @app.route('/insert', methods=['GET', 'POST'])
 def upload():
     if request.method == 'POST' and 'photo' in request.files:
         code = str(int(uuid.uuid4()))
         filename = photos.save(request.files['photo'], name=code + ".jpeg")
-#        tag = set(yolo(code))
+#       tag = set(yolo(code))
         tag = set(["cat", "dog"])
         out = "Tags found are "
         for t in tag:
