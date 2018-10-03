@@ -49,12 +49,13 @@ def get_image(tag):
 
 # Process search query
 
-def yolo():
-    cmd = ["darknet/darknet", "detect", "cfg/yolov3.cfg", "yolov3.weights", "static/img/" + idx + "jpeg"]
-    with open('text_output.txt', 'w') as fout:
-        subprocess.Popen(cmd, stdout=fout,
-                stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE)
+def yolo(code):
+#   cmd = ["darknet/darknet", "detect", "cfg/yolov3.cfg", "yolov3.weights", "static/img/" + idx + "jpeg"]
+    cmd = ["bash", "yolo.sh", "idx"] 
+    p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    out, err = p.communicate()
+    output = out.split()
+    return output[0::2]
 
 @app.route('/', methods=['GET'])
 def home():
@@ -92,8 +93,9 @@ def upload():
     if request.method == 'POST' and 'photo' in request.files:
         code = str(int(uuid.uuid4()))
         filename = photos.save(request.files['photo'], name=code + ".jpeg")
-#       tag = set(yolo(code))
-        tag = set(["cat", "dog"])
+        yolo(code)
+        tag = set(yolo(code))
+#       tag = set(["cat", "dog"])
         out = "Tags found are "
         for t in tag:
             add_db(t, code)
