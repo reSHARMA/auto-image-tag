@@ -10,6 +10,7 @@ import redis
 import subprocess
 from flask_cors import CORS, cross_origin
 from gensim.parsing.preprocessing import preprocess_string
+from gensim.models.wrappers import FastText
 
 app = Flask(__name__)
 
@@ -51,11 +52,24 @@ def get_image(tag):
 
 def yolo(code):
 #   cmd = ["darknet/darknet", "detect", "cfg/yolov3.cfg", "yolov3.weights", "static/img/" + idx + "jpeg"]
-    cmd = ["bash", "yolo.sh", "idx"] 
+    cmd = ["bash", "yolo.sh"] 
     p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
     out, err = p.communicate()
     output = out.split()
     return output[0::2]
+
+def init_gensim():
+    model = FastText.load_fasttext_format('./model/wiki.simple')
+    return model
+
+def add_more_tag(tag):
+    model = init_gensim()
+    temp = tag
+    for t in temp:
+        similar = model.most_similar(t)
+        for word in similar:
+            tag.add(word[0])
+    return tag
 
 @app.route('/', methods=['GET'])
 def home():
@@ -95,7 +109,8 @@ def upload():
         filename = photos.save(request.files['photo'], name=code + ".jpeg")
         yolo(code)
         tag = set(yolo(code))
-#       tag = set(["cat", "dog"])
+        print(tag)
+#       tag = add_more_tag(tag, 3)
         out = "Tags found are "
         for t in tag:
             add_db(t, code)
